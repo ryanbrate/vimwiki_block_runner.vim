@@ -11,8 +11,8 @@ With cursor (anywhere) within the code block, run *:call Execute_Block()*
 
 
 }}}
+--> The block output is appended immediately after the block
 ```
-*--> The block output is appended immediately after the block*
 
 ## Installation
 
@@ -33,6 +33,8 @@ let g:vwbr_commands = {
     \'python':'python3 %s',
     \}
 ```
+
+Where *%s* denotes the code block to be executed
 
 2. Shortcut mapping to execute a block
 
