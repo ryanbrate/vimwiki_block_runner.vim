@@ -1,0 +1,19 @@
+*vimwiki_block_runner_vim*
+A plugin for executing code blocks defined in vimwiki files. 
+
+
+Execute_Block()                                     *Execute_block*
+            Run the code block under the cursor as per the commandline instruction defined in g:vwbr_commands (dict). Appends the block output after the block.
+
+            Example:
+
+                :call Execute_Block()
+
+
+g:vwbr_commands                                     *g:vwbr_commands*
+            global variable (dict) defined in .vimrc file. Associated a block label with a block commandline instruction
+
+            Example:
+
+                g:vwbr_commands = {'python':'!python3 %s'}
+                    " where %s denotes the block of code as a file
