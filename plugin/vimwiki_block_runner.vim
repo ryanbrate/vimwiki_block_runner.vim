@@ -22,8 +22,8 @@ function! Get_block_extents(delimiters) abort
 
     " find the line numbers of all delimeters in the buffer
     let l:delim_positions = Filter(
-                \{i->getline('.') =~ '^' . '\(' . join(a:delimiters, '\|') . '\)'}, 
-                \range(1, line('$')))
+                \{i->getline(i) =~ '^' . '\(' . join(a:delimiters, '\|') . '\)'}, 
+                \range(1, line('$'))
                 \)
 
     " retrieve type of previous delimiter
@@ -62,6 +62,7 @@ function! Get_block_extents(delimiters) abort
             return []
         elseif l:previous == 1
             return [l:previous_line, line('.')]
+        endif
     " case where cursor no on delimiter
     else
         if l:previous == 0 || l:next == 0
@@ -72,6 +73,7 @@ function! Get_block_extents(delimiters) abort
             return []
         elseif l:previous == 1 && l:next ==2
             return [l:previous_line, l:next_line]
+        endif
     endif
     
 endfunction
