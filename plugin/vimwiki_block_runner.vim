@@ -129,11 +129,13 @@ function! Execute_Block() abort
 
             " execute code, and capture output
             let l:results = systemlist(printf(g:vwbr_commands[l:block_type], l:temp_file))
+            echom 'results = ' . join(l:results, ', ')
 
             " append output to end of block
             for [index, output] in Enumerate(l:results)
                 call append(l:block_close_line + index, output)
             endfor
+
         endif
     endif
 
