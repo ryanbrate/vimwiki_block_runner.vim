@@ -18,82 +18,64 @@ function! Get_block_extents(delimiters) abort
     "   E.g., [25, 29], buffer line number of start and stop delimiters,
     "   respectively.
     "
-    " Note: Where a corresponding opening or closing delimiter cannot be found, 
-    " the line number of this (absent) delimiter is returned as 0
+    " Note: where not in block, empty list returned
 
-    let l:opening_delimiter_line = 0
-    let l:closing_delimiter_line = 0
+    " find the line numbers of all delimeters in the buffer
+    let l:delim_positions = Filter(
+                \{i->getline(i) =~ '^' . '\(' . join(a:delimiters, '\|') . '\)'}, 
+                \range(1, line('$'))
+                \)
+
+    " retrieve type of previous delimiter
+    let l:previous_line = max(Filter({i -> i<line('.')}, l:delim_positions))
+    let l:previous = getline(l:previous_line) =~ a:delimiters[0] ? 1 :
+                \getline(l:previous_line) =~ a:delimiters[1] ? 2 :
+                \0 " where 1 = opening, 2 = closing, 0 = none
     
+    " retrieve type of next delimeter
+    let l:next_line = min(Filter({i -> i>line('.')}, l:delim_positions))
+    let l:next = getline(l:next_line) =~ a:delimiters[0] ? 1 :
+                \getline(l:next_line) =~ a:delimiters[1] ? 2 :
+                \0 " where 1 = opening, 2 = closing, 0 = none
+
+    " get the delimiters on the current line
+    let l:current = getline('.') =~ a:delimiters[0]? 1 : 
+                \getline('.') =~ a:delimiters[1] ? 2 :
+                \0 " where 1 = opening, 2 = closing, 0 = none
+
+    " handle return based on scenario...
+
     " case where cursor on opening delimiter
-    if getline('.') =~ '^' . a:delimiters[0]
-
-        let l:opening_delimiter_line = line('.')
-
-        " examine subsequent lines sequentially for closing delim
-        for i in range(line('.')+1, line('$')) 
-            " next delimiter is also an opening, not a closing...eek!
-            if getline(i) =~ '^' . a:delimiters[0] 
-                let l:closing_delimiter_line = 0 
-                break
-            " bingo!
-            elseif getline(i) =~ '^' . a:delimiters[1]
-                let l:closing_delimiter_line = i
-                break
-            endif
-        endfor
-
-    " case where cursor is on closing delimiter
-    elseif getline('.') =~ '^' . a:delimiters[1]
-
-        let l:closing_delimiter_line = line('.')
-
-        " if the closing delimiter is on first line, there cannot be a
-        " corrsponding opening...eek!
+    if l:current == 1
+        if line('.') == line('$')
+            return []
+        elseif l:next == 1 || l:next == 0
+            return []
+        elseif l:next == 2
+            return [line('.'), l:next_line]
+        endif 
+    " case where cursor on closing delimiter
+    elseif l:current == 2
         if line('.') == 1
-            let l:opening_delimiter_line = 0
-        else
-            " examine previous lines sequentially for an opening delimiter
-            for i in range(line('.')-1, 1, -1) 
-                 if getline(i) =~ '^' . a:delimiters[0] 
-                    let l:closing_delimiter_line = i 
-                    break
-                " next delimiter is also a closing...eek!
-                elseif getline(i) =~ '^' . a:delimiters[1]
-                    let l:closing_delimiter_line = 0 
-                    break
-                endif
-            endfor
+            return []
+        elseif l:previous == 2 || l:previous == 0
+            return []
+        elseif l:previous == 1
+            return [l:previous_line, line('.')]
         endif
-
-    " case where cursor is between delimiters (may be inblock or not)
+    " case where cursor no on delimiter
     else
-        " search earlier lines for delimiters
-        for i in range(line('.')-1, 1, -1)
-            if getline(i) =~ '^' . a:delimiters[0]
-                let l:opening_delimiter_line = i
-                break
-            " next earliest is not an opening delim...cursor not in a block
-            elseif getline(i) =~ '^' . a:delimiters[1]
-                let l:opening_delimiter_line = 0 
-                break
-            endif
-        endfor
-
-        " search later lines for delimiters
-        for i in range(line('.')+1, line('$'))
-            " next latest is not a closing delim...cursor not in a block
-            if getline(i) =~ '^' . a:delimiters[0]
-                let l:closing_delimiter_line = 0  
-                break
-            elseif getline(i) =~ '^' . a:delimiters[1]
-                let l:closing_delimiter_line = i
-                break
-            endif
-        endfor
+        if l:previous == 0 || l:next == 0
+            return []
+        elseif l:previous == l:next
+            return []
+        elseif l:previous == 2 && l:next == 1
+            return []
+        elseif l:previous == 1 && l:next ==2
+            return [l:previous_line, l:next_line]
+        endif
     endif
-
-    return [l:opening_delimiter_line, l:closing_delimiter_line]
-
+    
 endfunction
 
 function! Get_block(delimiters = ['{{{', '}}}'], temp_file = $HOME . '/.vim/plugged/vimwiki_block_runner.vim/temp/block') abort
@@ -112,7 +94,7 @@ function! Get_block(delimiters = ['{{{', '}}}'], temp_file = $HOME . '/.vim/plug
     echom 'block extents = ' . join(l:block_extents, ', ')
 
     " copy the block to temp file
-    if !In(0, l:block_extents)  " cursor is in a block
+    if len(l:block_extents) != 0 " cursor is in a block
 
         " Get the block type
         let l:block_type = split(getline(l:block_extents[0]), a:delimiters[0])[0]
@@ -146,10 +128,14 @@ function! Execute_Block() abort
             let l:temp_file = l:inputs[2]
 
             " execute code, and capture output
-            let l:result = system(printf(g:vwbr_commands[l:block_type], l:temp_file))
+            let l:results = systemlist(printf(g:vwbr_commands[l:block_type], l:temp_file))
+            echom 'results = ' . join(l:results, ', ')
 
             " append output to end of block
-            call append(l:block_close_line, l:result)
+            for [index, output] in Enumerate(l:results)
+                call append(l:block_close_line + index, output)
+            endfor
+
         endif
     endif
 
